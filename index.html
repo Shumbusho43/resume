@@ -577,6 +577,7 @@
 
         .form-group {
             margin-bottom: 1.5rem;
+            position: relative;
         }
 
         .form-group label {
@@ -590,10 +591,10 @@
         .form-group textarea {
             width: 100%;
             padding: 0.8rem;
-            border: 2px solid transparent;
+            border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 1rem;
-            transition: border-color 0.3s ease;
+            transition: all 0.3s ease;
             background: var(--white);
         }
 
@@ -601,6 +602,7 @@
         .form-group textarea:focus {
             outline: none;
             border-color: var(--secondary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
         }
 
         .form-group textarea {
@@ -624,12 +626,56 @@
             display: block;
         }
 
+        .form-group.success input,
+        .form-group.success textarea {
+            border-color: #2ecc71;
+        }
+
         /* Footer */
         .footer {
             background: var(--primary-color);
             color: var(--white);
             text-align: center;
             padding: 2rem 0;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 2rem;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: var(--primary-color);
         }
 
         /* Animations */
@@ -650,6 +696,17 @@
             }
             to {
                 opacity: 1;
+            }
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
 
@@ -1002,26 +1059,26 @@
             <form class="contact-form" id="contact-form">
                 <div class="form-group">
                     <label for="name">Full Name</label>
-                    <input type="text" id="name" name="name" required>
-                    <div class="form-error">Please enter your full name</div>
+                    <input type="text" id="name" name="name" placeholder="Enter your full name">
+                    <div class="form-error" id="name-error">Please enter a valid name (2-50 characters)</div>
                 </div>
                 
                 <div class="form-group">
                     <label for="email">Email Address</label>
-                    <input type="email" id="email" name="email" required>
-                    <div class="form-error">Please enter a valid email address</div>
+                    <input type="email" id="email" name="email" placeholder="Enter your email address">
+                    <div class="form-error" id="email-error">Please enter a valid email address</div>
                 </div>
                 
                 <div class="form-group">
                     <label for="subject">Subject</label>
-                    <input type="text" id="subject" name="subject" required>
-                    <div class="form-error">Please enter a subject</div>
+                    <input type="text" id="subject" name="subject" placeholder="Enter message subject">
+                    <div class="form-error" id="subject-error">Subject must be 5-100 characters</div>
                 </div>
                 
                 <div class="form-group">
                     <label for="message">Message</label>
-                    <textarea id="message" name="message" placeholder="Write your message here..." required></textarea>
-                    <div class="form-error">Please enter your message</div>
+                    <textarea id="message" name="message" placeholder="Write your message here..."></textarea>
+                    <div class="form-error" id="message-error">Message must be 20-1000 characters</div>
                 </div>
                 
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Send Message</button>
@@ -1111,69 +1168,175 @@
             });
         });
 
-        // Form validation and submission
+        // Enhanced Form Validation
         const contactForm = document.getElementById('contact-form');
         const modal = document.getElementById('success-modal');
         const closeModal = document.querySelector('.close');
-
+        
+        // Validation patterns
+        const validationRules = {
+            name: {
+                minLength: 2,
+                maxLength: 50,
+                pattern: /^[a-zA-Z\s'-]+$/,
+                error: 'Please enter a valid name (2-50 characters, letters only)'
+            },
+            email: {
+                pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                error: 'Please enter a valid email address'
+            },
+            subject: {
+                minLength: 5,
+                maxLength: 100,
+                error: 'Subject must be 5-100 characters'
+            },
+            message: {
+                minLength: 20,
+                maxLength: 1000,
+                error: 'Message must be 20-1000 characters'
+            }
+        };
+        
+        // Validate individual field
+        function validateField(fieldName, value) {
+            const rules = validationRules[fieldName];
+            const trimmedValue = value.trim();
+            
+            if (!trimmedValue) return false;
+            
+            if (fieldName === 'name') {
+                if (trimmedValue.length < rules.minLength || trimmedValue.length > rules.maxLength) {
+                    return false;
+                }
+                if (!rules.pattern.test(trimmedValue)) {
+                    return false;
+                }
+                return true;
+            }
+            
+            if (fieldName === 'email') {
+                return rules.pattern.test(trimmedValue);
+            }
+            
+            if (fieldName === 'subject' || fieldName === 'message') {
+                return trimmedValue.length >= rules.minLength && trimmedValue.length <= rules.maxLength;
+            }
+            
+            return true;
+        }
+        
+        // Show error message
+        function showError(fieldName, message) {
+            const field = document.getElementById(fieldName);
+            const errorElement = document.getElementById(`${fieldName}-error`);
+            
+            field.closest('.form-group').classList.add('error');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+        
+        // Clear error message
+        function clearError(fieldName) {
+            const field = document.getElementById(fieldName);
+            const errorElement = document.getElementById(`${fieldName}-error`);
+            
+            field.closest('.form-group').classList.remove('error');
+            errorElement.style.display = 'none';
+        }
+        
+        // Validate entire form
+        function validateForm(formData) {
+            let isValid = true;
+            
+            // Validate each field
+            for (const [fieldName, value] of formData.entries()) {
+                // Skip validation for submit button
+                if (fieldName === 'submit') continue;
+                
+                // Check if field is empty
+                if (!value.trim()) {
+                    showError(fieldName, 'This field is required');
+                    isValid = false;
+                    continue;
+                }
+                
+                // Validate field based on rules
+                if (!validateField(fieldName, value)) {
+                    showError(fieldName, validationRules[fieldName].error);
+                    isValid = false;
+                } else {
+                    clearError(fieldName);
+                }
+            }
+            
+            return isValid;
+        }
+        
+        // Real-time validation as user types
+        contactForm.querySelectorAll('input, textarea').forEach(field => {
+            field.addEventListener('input', (e) => {
+                const fieldName = e.target.name;
+                const value = e.target.value;
+                
+                if (value === '') {
+                    clearError(fieldName);
+                    return;
+                }
+                
+                if (!validateField(fieldName, value)) {
+                    showError(fieldName, validationRules[fieldName].error);
+                } else {
+                    clearError(fieldName);
+                }
+            });
+        });
+        
+        // Form submission handler
         contactForm.addEventListener('submit', (e) => {
             e.preventDefault();
             
-            // Clear previous errors
-            const formGroups = document.querySelectorAll('.form-group');
-            formGroups.forEach(group => group.classList.remove('error'));
-            
-            // Validate form
-            let isValid = true;
+            // Get form data
             const formData = new FormData(contactForm);
             
-            // Name validation
-            const name = formData.get('name').trim();
-            if (!name || name.length < 2) {
-                document.querySelector('#name').closest('.form-group').classList.add('error');
-                isValid = false;
-            }
-            
-            // Email validation
-            const email = formData.get('email').trim();
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!email || !emailRegex.test(email)) {
-                document.querySelector('#email').closest('.form-group').classList.add('error');
-                isValid = false;
-            }
-            
-            // Subject validation
-            const subject = formData.get('subject').trim();
-            if (!subject || subject.length < 3) {
-                document.querySelector('#subject').closest('.form-group').classList.add('error');
-                isValid = false;
-            }
-            
-            // Message validation
-            const message = formData.get('message').trim();
-            if (!message || message.length < 10) {
-                document.querySelector('#message').closest('.form-group').classList.add('error');
-                isValid = false;
-            }
-            
-            // If form is valid, simulate sending
-            if (isValid) {
-                // Simulate API call delay
+            // Validate form
+            if (validateForm(formData)) {
+                // Simulate form submission
                 const submitBtn = contactForm.querySelector('button[type="submit"]');
                 const originalText = submitBtn.textContent;
+                
+                // Show loading state
                 submitBtn.textContent = 'Sending...';
                 submitBtn.disabled = true;
                 
+                // Simulate API call
                 setTimeout(() => {
-                    // Reset form and show success modal
+                    // Reset form
                     contactForm.reset();
+                    
+                    // Show success message
                     modal.style.display = 'block';
+                    
+                    // Reset button
                     submitBtn.textContent = originalText;
                     submitBtn.disabled = false;
+                    
+                    // Hide modal after 3 seconds
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                    }, 3000);
                 }, 1500);
+            } else {
+                // Scroll to first error
+                const firstError = contactForm.querySelector('.form-group.error');
+                if (firstError) {
+                    firstError.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }
             }
         });
-
+        
         // Modal functionality
         closeModal.addEventListener('click', () => {
             modal.style.display = 'none';
@@ -1264,61 +1427,6 @@
             .particle {
                 animation: float 4s ease-in-out infinite;
             }
-            
-            /* Modal Styles */
-            .modal {
-                display: none;
-                position: fixed;
-                z-index: 2000;
-                left: 0;
-                top: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                backdrop-filter: blur(5px);
-            }
-            
-            .modal-content {
-                background-color: white;
-                margin: 15% auto;
-                padding: 2rem;
-                border-radius: 15px;
-                width: 90%;
-                max-width: 500px;
-                text-align: center;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-                animation: modalSlideIn 0.3s ease;
-            }
-            
-            @keyframes modalSlideIn {
-                from {
-                    opacity: 0;
-                    transform: translateY(-50px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-            
-            .close {
-                color: #aaa;
-                float: right;
-                font-size: 28px;
-                font-weight: bold;
-                cursor: pointer;
-                line-height: 1;
-            }
-            
-            .close:hover,
-            .close:focus {
-                color: var(--primary-color);
-            }
-            
-            .modal-content h2 {
-                color: var(--primary-color);
-                margin-bottom: 1rem;
-            }
         `;
         document.head.appendChild(style);
 
@@ -1370,7 +1478,7 @@
             });
         });
 
-        // Theme toggle functionality (bonus feature)
+        // Theme toggle functionality
         function createThemeToggle() {
             const themeToggle = document.createElement('button');
             themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
